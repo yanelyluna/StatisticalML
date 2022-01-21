@@ -1,0 +1,115 @@
+---
+title: "Tarea Examen 1  - Aprendizaje Estadístico Automatizado"
+author: "Yanely Luna Gutiérrez"
+date: "3 de octubre de 2020"
+output: html_document
+---
+
+## REGRESIÓN LINEAL
+Yanely Luna Gutiérrez
+
+### 1. Ejercicio 9
+Regresión lineal múltiple para el conjunto de datos $\texttt{auto}$.
+
+Esta base de datos tiene información de 392 vehículos sobre 9 variables:
+
++ $\texttt{mpg}$: Millas recorridas por galón.
++ $\texttt{cyliders}$: Número de cilindros.
++ $\texttt{displacement}$: Volumen útil de todos los cilindros en pulgadas cúbicas.
++ $\texttt{horsepower}$: Potencia del motor (en caballos de fuerza).
++ $\texttt{weight}$: Peso del vehículo en libras.
++ $\texttt{acceleration}$: Tiempo en segundos que tarda en acelerar de 0 a 60mph.
++ $\texttt{year}$: Año del modelo.
++ $\texttt{origin}$: Origen del vehículo (1 Americano, 2 Europeo, 3 Japonés).
++ $\texttt{name}$: Nombre del vehículo.
+
+#### a)
+
+```{r, echo=FALSE,warning=FALSE,message=FALSE, fig.align = "center"}
+library(ISLR)
+library(knitr)
+data(Auto)
+pairs(Auto, cex = 1.2, pch = '.', col = "#1c7178", main = "Scatterplot Matrix", cmi = c(1,3,1,3))
+```
+
+En la gráfica de dispersión por pares podemos observar la relación gráfica entre cada par de variables de la base y notamos que algunas parecen tener una relación lineal positiva (como $\texttt{displacement}$ y $\texttt{horsepower}$), mientras que en otras se observa una relación no lineal negativa (como $\texttt{mpg}$ y $\texttt{weight}$) y algunas parecen no tener una relación tan clara (en $\texttt{year}$ y $\texttt{horsepower}$). Las relaciones con la variable $\texttt{name}$ no nos dicen algo claro puesto que esta variable es solo el nombre del vehículo.
+
+#### b) Matriz de correlaciones
+```{r,echo=FALSE,warning=FALSE,message=FALSE, fig.align = "center"}
+kable(cor(Auto[,-9]))
+Auto$cylinders <- as.factor(Auto$cylinders)
+Auto$origin <- as.factor(Auto$origin)
+kable(cor(Auto[,-c(2,8,9)]))
+```
+
+En la matriz de correlaciones podemos confirmar lo que notamos en la gráfica anterior respecto a la relación lineal positiva entre $\texttt{displacement}$ y $\texttt{horsepower}$ pues su correlación es de 0.89, bastante cercana a 1.
+
+#### c) Ajuste del modelo de regresión
+```{r,echo=FALSE,warning=FALSE,message=FALSE, fig.align = "center"}
+modelos <- list()
+modelos[[1]] <- lm(mpg ~ cylinders + displacement + horsepower + weight + acceleration + year + origin, data = Auto)
+summary(modelos[[1]])
+```
+
+En el summary del modelo podemos notar que sí hay una relación entre las variables predictoras y la variable respuesta pues la prueba de hipótesis $$H_0: \beta_1 = \beta_2 = \cdots = \beta_7 = 0 \text{   vs   } H_A: \beta_i \neq 0 \text{  para alguna } i \in \{1,2,...,7\}$$
+tiene un p-value de $2.2\cdot 10^{-16}$, lo cual nos dice que el modelo tiene es significativo a un nivel de muy cercano a 0. 
+Sin embargo, algunos predictores son más significantes que otros, por ejemplo, las variables $\texttt{weight}$, $\texttt{year}$ y $\texttt{origin}$ son estadísticamente significativas a un nivel muy cercano a 0 mientras que $\texttt{displacement}$ lo es a un nivel de 0.001 y por último $\texttt{cylinders}$, $\texttt{horsepower}$ y $\texttt{acceleration}$ no lo son siquiera a un nivel de 0.1
+
+Esto nos dice que las variables que menos contribuyen a explicar las millas por galón del vehículo son el número de cilindros, la potencia y la aceleración. Por otro lado, el año del modelo es una variable altamente significativa y al tener un coeficiente ajustado de 0.75, nos dice que en dos autos con las mismas características excepto en una diferencia de un año en el modelo, el vehículo más reciente será en promedio  0.75 millas por galón  más rendidor que el auto que es un año más antiguo.
+
+#### d)
+```{r,echo=FALSE,warning=FALSE,message=FALSE, fig.align = "center"}
+par(mfrow = c(2,2))
+plot(modelos[[1]], pch = '.', cex = 4, col="#168f99")
+```
+
+En las gráficas de diagnóstico de los residuales podemos notar que al comparar los residuales con los valores ajustados no se observa una dispersión aleatoria como se desea, pareciera que los residuales presentan una varianza que aumenta conforme incrementan los valores ajustados, lo cual incumple el supuesto de varianza constante. Además, el qq-plot nos muestra que los valores en la cola derecha difieren de los cuantiles teóricos de una forma significante, sobre todo para las observaciones 323, 326 y 327, mientras que la distancia de Cook nos muestra que la observación 14 se aleja del conjunto de las demás observaciones, lo que nos sugiere probar con un modelo que no incluya dicha observación y ver si mejora el modelo.
+
+### e)
+
+Podemos construir un modelo con interacciones entre las variables predictoras.
+
+Una opción es incluir la interacción entre el año del modelo del auto y el lugar de origen
+```{r}
+#Interacción entre year:origin
+modelos[[2]] <- lm(mpg ~ cylinders + displacement + horsepower + weight + acceleration + year + origin + year:origin, data = Auto)
+summary(modelos[[2]])
+anova(modelos[[1]],modelos[[2]])
+```
+
+Otra opción es incluir la interacción entre el peso y la aceleración en el primer modelo (el que tiene todas las variables predictoras)
+```{r}
+#Interacción weight:acceleration
+modelos[[3]] <- lm(mpg ~ cylinders + displacement + horsepower + weight + acceleration + weight:acceleration + year + origin, data = Auto)
+summary(modelos[[3]])
+```
+
+También podríamos tomar en cuenta la interacción entre el número de cilindros y el volúmen útil de todos los cilindros pues hay una clara relación entre ambas variables predictoras.
+```{r}
+#Interacción cylinders:displacement
+modelos[[4]] <- lm(mpg ~ cylinders + displacement + cylinders:displacement + horsepower + weight + acceleration + year + origin, data = Auto)
+summary(modelos[[4]])
+
+```
+
+Por último, podemos crear un modelo que tome en cuenta las dos interacciones anteriores, los cilíndros con el el volumen útil y el peso con la aceleración.
+```{r}
+
+#Interacción weight:acceleration y cylinders:displacement
+modelos[[5]] <- lm(mpg ~ cylinders + displacement + cylinders:displacement + horsepower + weight + acceleration + weight:acceleration + year + origin, data = Auto)
+summary(modelos[[5]])
+```
+
+Para comparar los modelos nos fijarnos en las gráficas de los residuales
+```{r}
+for (i in 1:5) {
+print(summary(modelos[[i]])$r.square)
+}
+
+par(mfrow = c(2,2))
+plot(modelos[[1]], which = 1, pch = '.', cex = 4, col="#168f99")
+plot(modelos[[2]], which = 1, pch = '.', cex = 4, col="#168f99")
+plot(modelos[[3]], which = 1, pch = '.', cex = 4, col="#168f99")
+plot(modelos[[4]], which = 1, pch = '.', cex = 4, col="#168f99")
+```
+
